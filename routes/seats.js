@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const seatReservationService = require('../services/seatReservationService');
+const { validate, Joi } = require('../middleware/validate');
 
 /**
  * @swagger
@@ -8,6 +9,19 @@ const seatReservationService = require('../services/seatReservationService');
  *   name: Seats
  *   description: Seats reservation service endpoints (bound to reservations)
  */
+
+const addSeatSchema = Joi.object({
+  theaterId: Joi.string().required(),
+  seatNumber: Joi.string().required(),
+  category: Joi.string().valid('standard', 'vip', 'accessible').default('standard'),
+});
+
+const reserveSchema = Joi.object({
+  theaterId: Joi.string().required(),
+  seatNumber: Joi.string().required(),
+  userId: Joi.string().required(),
+  movieId: Joi.string().required(),
+});
 
 /**
  * @swagger
@@ -24,13 +38,14 @@ const seatReservationService = require('../services/seatReservationService');
  *             properties:
  *               theaterId: { type: string }
  *               seatNumber: { type: string }
+ *               category: { type: string, enum: [standard, vip, accessible] }
  *     responses:
  *       201: { description: Seat added }
  */
-router.post('/add', async (req, res) => {
+router.post('/add', validate(addSeatSchema), async (req, res) => {
   try {
-    const { theaterId, seatNumber } = req.body;
-    const seat = await seatReservationService.addSeatToTheater(theaterId, seatNumber);
+    const { theaterId, seatNumber, category } = req.body;
+    const seat = await seatReservationService.addSeatToTheater(theaterId, seatNumber, category);
     res.status(201).json(seat);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -57,7 +72,7 @@ router.post('/add', async (req, res) => {
  *     responses:
  *       201: { description: Seat reserved }
  */
-router.post('/reserve', async (req, res) => {
+router.post('/reserve', validate(reserveSchema), async (req, res) => {
   try {
     const { theaterId, seatNumber, userId, movieId } = req.body;
     const reservation = await seatReservationService.reserveSeat(theaterId, seatNumber, userId, movieId);
@@ -75,6 +90,16 @@ router.get('/reservations/:id', async (req, res) => {
     res.json(reservation);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /seats/reservations/:id — cancel reservation and release seat
+router.delete('/reservations/:id', async (req, res) => {
+  try {
+    const result = await seatReservationService.cancelReservation(req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

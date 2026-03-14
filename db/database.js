@@ -72,6 +72,13 @@ db.serialize(() => {
     FOREIGN KEY (payment_id) REFERENCES payments(id)
   )`);
 
+  // Schema migrations: add new columns (ignored if already exist)
+  db.run(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'`, () => {});
+  db.run(`ALTER TABLE seats ADD COLUMN category TEXT DEFAULT 'standard'`, () => {});
+  db.run(`ALTER TABLE tickets ADD COLUMN status TEXT DEFAULT 'active'`, () => {});
+  db.run(`ALTER TABLE tickets ADD COLUMN token TEXT`, () => {});
+  db.run(`ALTER TABLE payments ADD COLUMN refunded INTEGER DEFAULT 0`, () => {});
+
   // Seed mock data for showcasing (theaters, movies with varying showtimes for dynamic pricing, seats)
   // INSERT OR IGNORE for idempotency , enables demo flows without duplicates
   const theaterId = 'mock-theater-1';

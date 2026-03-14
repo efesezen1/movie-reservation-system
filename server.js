@@ -2,14 +2,23 @@ const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const db = require('./db/database');  // init DB
+const logger = require('./middleware/logger');
+const rateLimiter = require('./middleware/rateLimiter');
+
 const app = express();
 const PORT = 3000;
 
-// Mount admin route BEFORE middleware
+// Trust proxy for accurate req.ip (localhost/IPv6 handling)
+app.set('trust proxy', true);
+
+// Base middleware — must come before all routes so body is parsed everywhere
+app.use(logger);
+app.use(express.json());
+
+// Admin route before rate limiter so signin is never blocked
 app.use('/admin', require('./routes/admin'));
 
-// Middleware
-app.use(express.json());
+app.use(rateLimiter);
 
 // Swagger setup for docs at /docs (scans routes incl /admin)
 const swaggerOptions = {
@@ -33,6 +42,7 @@ app.use('/theaters', require('./routes/theaters'));
 app.use('/movies', require('./routes/movies'));
 app.use('/seats', require('./routes/seats'));
 app.use('/tickets', require('./routes/tickets'));
+app.use('/payments', require('./routes/payments'));
 
 // Root
 app.get('/', (req, res) => {

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ticketService = require('../services/ticketService');
+const { validate, Joi } = require('../middleware/validate');
 
 /**
  * @swagger
@@ -8,6 +9,15 @@ const ticketService = require('../services/ticketService');
  *   name: Tickets
  *   description: Tickets service endpoints (bound to seat reservation and mock payment)
  */
+
+const issueSchema = Joi.object({
+  reservationId: Joi.string().required(),
+  amount: Joi.number().min(0).default(10.0),
+});
+
+const statusSchema = Joi.object({
+  status: Joi.string().valid('active', 'used', 'expired', 'cancelled').required(),
+});
 
 /**
  * @swagger
@@ -27,13 +37,24 @@ const ticketService = require('../services/ticketService');
  *     responses:
  *       201: { description: Ticket issued }
  */
-router.post('/issue', async (req, res) => {
+router.post('/issue', validate(issueSchema), async (req, res) => {
   try {
     const { reservationId, amount } = req.body;
     const ticket = await ticketService.issueTicket(reservationId, amount);
     res.status(201).json(ticket);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// GET /tickets/user/:userId — get tickets by user with pagination (?limit=&offset=)
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const { limit, offset } = req.query;
+    const tickets = await ticketService.getTicketsByUser(req.params.userId, limit, offset);
+    res.json(tickets);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -48,13 +69,23 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// GET /tickets/user/:userId
-router.get('/user/:userId', async (req, res) => {
+// PATCH /tickets/:id/status — update ticket status
+router.patch('/:id/status', validate(statusSchema), async (req, res) => {
   try {
-    const tickets = await ticketService.getTicketsByUser(req.params.userId);
-    res.json(tickets);
+    const result = await ticketService.updateTicketStatus(req.params.id, req.body.status);
+    res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// DELETE /tickets/:id — cancel ticket (triggers refund)
+router.delete('/:id', async (req, res) => {
+  try {
+    const result = await ticketService.cancelTicket(req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
